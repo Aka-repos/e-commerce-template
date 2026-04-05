@@ -1,0 +1,61 @@
+services:
+  web:
+    container_name: don-chicho-slider
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 3000:3000
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      # S3 / MinIO Config
+      - S3_ENDPOINT=http://minio:9000
+      - S3_REGION=us-east-1
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET_NAME=producto-imagen
+      - S3_FORCE_PATH_STYLE=true
+      # URL accessible by the browser (Host)
+      - NEXT_PUBLIC_STORAGE_URL=http://localhost:9000
+      # Allow server actions to trust large payloads if needed (configured in next.config already)
+    depends_on:
+      - postgres
+      - minio
+      - createbuckets
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: don-chicho-db
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  minio:
+    image: minio/minio
+    container_name: don-chicho-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c " /usr/bin/mc config host add myminio http://minio:9000 minioadmin minioadmin; /usr/bin/mc mb myminio/producto-imagen; /usr/bin/mc policy set public myminio/producto-imagen; exit 0; "
+
+volumes:
+  minio_data:
