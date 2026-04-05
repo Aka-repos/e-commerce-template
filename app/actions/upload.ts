@@ -1,82 +1,70 @@
 'use server'
 
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
-import { Upload } from '@aws-sdk/lib-storage'
 
-// Initialize S3 Client
-// Ensure these env vars are set in your .env or platform configuration
-const s3Client = new S3Client({
-    endpoint: process.env.S3_ENDPOINT || `https://${process.env.SUPABASE_PROJECT_REF}.supabase.co/storage/v1/s3`,
-    region: process.env.S3_REGION || process.env.SUPABASE_REGION || 'us-east-1',
+const PROJECT_REF = process.env.SUPABASE_PROJECT_REF!
+const BUCKET     = process.env.SUPABASE_STORAGE_BUCKET || 'producto-imagen'
+const REGION     = process.env.SUPABASE_STORAGE_REGION || 'us-east-1'
+
+const s3 = new S3Client({
+    endpoint: `https://${PROJECT_REF}.supabase.co/storage/v1/s3`,
+    region: REGION,
     credentials: {
-        accessKeyId: (process.env.S3_ACCESS_KEY || process.env.SUPABASE_ACCESS_KEY_ID)!,
-        secretAccessKey: (process.env.S3_SECRET_KEY || process.env.SUPABASE_SECRET_ACCESS_KEY)!
+        accessKeyId:     process.env.SUPABASE_S3_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.SUPABASE_S3_SECRET_ACCESS_KEY!,
     },
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true' // Required for MinIO
+    forcePathStyle: true, // required for Supabase Storage S3
 })
 
-const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'producto-imagen'
+function buildFilename(originalName: string): string {
+    const ext  = originalName.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const base = originalName
+        .replace(/\.[^/.]+$/, '')           // remove extension
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')        // non-alphanumeric → dash
+        .replace(/^-+|-+$/g, '')            // trim leading/trailing dashes
+        .slice(0, 60)                        // cap length
+    const ts = Date.now()
+    return `productos/${base}-${ts}.${ext}`
+}
 
-export async function uploadProductImage(formData: FormData): Promise<{ url: string | null; error?: string }> {
+export async function uploadProductImage(
+    formData: FormData
+): Promise<{ url: string | null; error?: string }> {
+    if (!PROJECT_REF || !process.env.SUPABASE_S3_ACCESS_KEY_ID) {
+        return { url: null, error: 'Supabase Storage no está configurado. Revisa las variables de entorno.' }
+    }
+
+    const file = formData.get('file') as File | null
+    if (!file) return { url: null, error: 'No se recibió ningún archivo.' }
+
+    const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
+    if (file.size > MAX_SIZE) {
+        return { url: null, error: 'El archivo supera el límite de 50 MB.' }
+    }
+
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!ALLOWED.includes(file.type)) {
+        return { url: null, error: 'Formato no soportado. Usa JPG, PNG, WEBP o GIF.' }
+    }
+
     try {
-        const file = formData.get('file') as File
-        if (!file) {
-            return { url: null, error: 'No file provided' }
-        }
+        const buffer   = Buffer.from(await file.arrayBuffer())
+        const key      = buildFilename(file.name)
 
-        const buffer = Buffer.from(await file.arrayBuffer())
-        const filename = `productos/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}` // Sanitize filename
+        await s3.send(new PutObjectCommand({
+            Bucket:      BUCKET,
+            Key:         key,
+            Body:        buffer,
+            ContentType: file.type,
+        }))
 
-        // For images > 50MB, use multipart upload (Upload class)
-        // Note: Next.js Server Actions pass the file, but we convert to buffer.
-        // For extremely large files, streaming directly might be better but Server Actions abstraction makes it tricky.
-        // Given the context of "products", >50MB is rare, but we support it via logic.
+        // Public URL: https://{ref}.supabase.co/storage/v1/object/public/{bucket}/{key}
+        const url = `${process.env.NEXT_PUBLIC_STORAGE_URL}/${BUCKET}/${key}`
+        return { url }
 
-        // Check if we have basic credentials (either custom or supabase)
-        const hasCredentials = (process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY) ||
-            (process.env.SUPABASE_ACCESS_KEY_ID && process.env.SUPABASE_SECRET_ACCESS_KEY)
-
-        if (!hasCredentials) {
-            console.error("Missing S3 credentials")
-            return { url: null, error: 'Server configuration error: Missing credentials' }
-        }
-
-        if (file.size > 50 * 1024 * 1024) {
-            // Large file upload
-            const parallelUploads3 = new Upload({
-                client: s3Client,
-                params: {
-                    Bucket: BUCKET_NAME,
-                    Key: filename,
-                    Body: buffer,
-                    ContentType: file.type,
-                },
-            })
-
-            await parallelUploads3.done()
-        } else {
-            // Single put upload
-            const command = new PutObjectCommand({
-                Bucket: BUCKET_NAME,
-                Key: filename,
-                Body: buffer,
-                ContentType: file.type,
-            })
-
-            await s3Client.send(command)
-        }
-
-        // Construct public URL
-        // If NEXT_PUBLIC_STORAGE_URL is defined, use it. Otherwise fallback to Supabase default format.
-        const baseUrl = process.env.NEXT_PUBLIC_STORAGE_URL || `https://${process.env.SUPABASE_PROJECT_REF}.supabase.co/storage/v1/object/public`
-
-        // Ensure baseUrl doesn't have trailing slash and path doesn't have leading slash duplication if handled
-        const publicUrl = `${baseUrl}/${BUCKET_NAME}/${filename}`
-
-        return { url: publicUrl }
-
-    } catch (error: any) {
-        console.error('S3 Upload Error:', error)
-        return { url: null, error: error.message || 'Upload failed' }
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido al subir la imagen.'
+        return { url: null, error: message }
     }
 }

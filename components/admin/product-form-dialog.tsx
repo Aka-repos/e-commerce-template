@@ -17,31 +17,36 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { categories, type Product } from "@/lib/products"
+import { type Category, type Product } from "@/lib/products"
+import { getCategories } from "@/app/actions/products"
 import { ImageUpload } from "@/components/admin/image-upload"
 
 interface ProductFormDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (product: Omit<Product, "id"> | Product) => void
+  onSubmit: (product: Omit<Product, "id"> | Product) => Promise<void>
   product?: Product | null
   mode: "add" | "edit"
 }
 
 export function ProductFormDialog({ open, onClose, onSubmit, product, mode }: ProductFormDialogProps) {
+  const [categories, setCategories] = useState<Category[]>([])
+
+  useEffect(() => {
+    getCategories().then(setCategories).catch(console.error)
+  }, [])
   // Allow strings for numeric fields to support easier editing (e.g. typing decimals)
-  type ProductFormState = Omit<Product, "id" | "created_at" | "updated_at" | "base_price" | "stock_quantity" | "min_stock_alert"> & {
+  type ProductFormState = Omit<Product, "id" | "slug" | "created_at" | "updated_at" | "base_price" | "stock_quantity" | "min_stock_alert"> & {
     base_price: string | number
     stock_quantity: string | number
     min_stock_alert: string | number
   }
 
-  // Initialize with correct fields
   const [formData, setFormData] = useState<ProductFormState>({
     name: "",
     cod_ref: "",
     description: "",
-    category_id: "c-telas",
+    category_id: "",
     base_price: "",
     unit: "metro",
     primary_image: "",
@@ -53,6 +58,7 @@ export function ProductFormDialog({ open, onClose, onSubmit, product, mode }: Pr
   })
 
   useEffect(() => {
+    if (!open) return
     if (product && mode === "edit") {
       setFormData({
         name: product.name,
@@ -73,7 +79,7 @@ export function ProductFormDialog({ open, onClose, onSubmit, product, mode }: Pr
         name: "",
         cod_ref: "",
         description: "",
-        category_id: "c-telas",
+        category_id: categories[0]?.id ?? "",
         base_price: 0,
         unit: "metro",
         primary_image: "",
@@ -84,13 +90,11 @@ export function ProductFormDialog({ open, onClose, onSubmit, product, mode }: Pr
         product_availability: "in_stock"
       })
     }
-  }, [product, mode, open])
+  }, [product, mode, open, categories])
 
-  // Need to handle id preservation if editing
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Convert string inputs back to numbers
     const submissionData = {
       ...formData,
       base_price: Number(formData.base_price) || 0,
@@ -99,9 +103,9 @@ export function ProductFormDialog({ open, onClose, onSubmit, product, mode }: Pr
     }
 
     if (mode === "edit" && product) {
-      onSubmit({ ...product, ...submissionData } as Product)
+      await onSubmit({ ...product, ...submissionData } as Product)
     } else {
-      onSubmit({
+      await onSubmit({
         ...submissionData,
         created_at: new Date(),
         updated_at: new Date()

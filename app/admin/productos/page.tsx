@@ -34,13 +34,9 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [refresh, setRefresh] = useState(0)
   const [allProducts, setAllProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    getAllProducts()
-      .then(setAllProducts)
-      .catch(console.error)
-      .finally(() => setIsLoading(false))
+    getAllProducts().then(setAllProducts).catch(console.error)
   }, [refresh])
 
   const filteredProducts = allProducts.filter((product) => {

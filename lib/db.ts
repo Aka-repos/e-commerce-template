@@ -1,11 +1,11 @@
-import { Pool } from 'pg';
+import { createClient } from '@supabase/supabase-js'
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-});
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
-export const query = (text: string, params?: any[]) => {
-    return pool.query(text, params);
-};
+// Public client — for browser use (respects RLS)
+const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!)
 
-export default pool;
+// Server-only client — bypasses RLS, never expose to browser
+export const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+export default supabase
