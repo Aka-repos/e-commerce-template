@@ -153,7 +153,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="quantity" className="text-base">
-                                        Cantidad ({product.unit}s)
+                                        Cantidad (Unidades)
                                     </Label>
                                     <div className="flex gap-2">
                                         <Button

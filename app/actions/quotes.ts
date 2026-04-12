@@ -8,7 +8,7 @@ export async function getAllQuotes(): Promise<Quote[]> {
         .from('quotes')
         .select(`
             *,
-            customer:users(name, email)
+            customer:users!quotes_customer_id_fkey(name, email)
         `)
         .order('created_at', { ascending: false })
 
@@ -32,7 +32,7 @@ export async function getAllQuotes(): Promise<Quote[]> {
 export async function getQuoteById(id: string): Promise<Quote | undefined> {
     const { data: q, error } = await supabase
         .from('quotes')
-        .select(`*, customer:users(name, email, phone)`)
+        .select(`*, customer:users!quotes_customer_id_fkey(name, email, phone)`)
         .eq('id', id)
         .single()
 
@@ -52,7 +52,7 @@ export async function getQuoteById(id: string): Promise<Quote | undefined> {
 export async function getQuotesByCustomer(customerId: string): Promise<Quote[]> {
     const { data: quotes, error } = await supabase
         .from('quotes')
-        .select(`*, customer:users(name, email)`)
+        .select(`*, customer:users!quotes_customer_id_fkey(name, email)`)
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
 

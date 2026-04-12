@@ -20,7 +20,7 @@ export default function CarritoPage() {
   const [cartItems, setCartItems] = useState<QuoteItem[]>([])
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
-  const user = getCurrentUser()
+  const [user] = useState(() => getCurrentUser())
 
   useEffect(() => {
     if (!user) {
@@ -28,11 +28,9 @@ export default function CarritoPage() {
       return
     }
 
-    if (typeof window !== "undefined") {
-      const cart = JSON.parse(localStorage.getItem("quoteCart") || "[]")
-      setCartItems(cart)
-    }
-  }, [user, router])
+    const cart = JSON.parse(localStorage.getItem("quoteCart") || "[]")
+    setCartItems(cart)
+  }, [user?.id, router])
 
   const updateQuantity = (index: number, newQuantity: number) => {
     const updatedCart = [...cartItems]

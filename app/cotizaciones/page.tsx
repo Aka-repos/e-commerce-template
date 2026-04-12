@@ -21,7 +21,7 @@ export default function CotizacionesPage() {
   const searchParams = useSearchParams()
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [showSuccess, setShowSuccess] = useState(false)
-  const user = getCurrentUser()
+  const [user] = useState(() => getCurrentUser())
 
   useEffect(() => {
     if (!user) {
@@ -39,7 +39,7 @@ export default function CotizacionesPage() {
       setShowSuccess(true)
       setTimeout(() => setShowSuccess(false), 5000)
     }
-  }, [user, router, searchParams])
+  }, [user?.id, router, searchParams])
 
   if (!user) {
     return null

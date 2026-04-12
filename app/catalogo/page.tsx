@@ -88,6 +88,7 @@ export default function CatalogoPage() {
 
       localStorage.setItem("quoteCart", JSON.stringify(cart))
       setCartCount(cart.length)
+      router.push("/carrito")
     }
   }
 

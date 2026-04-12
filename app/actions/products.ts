@@ -140,8 +140,18 @@ export async function createProduct(
 
 // ─── UPDATE ──────────────────────────────────────────────────────────────────
 
-export async function updateProduct(id: string, product: Partial<Product>): Promise<Product | null> {
-    const { primary_image, slug, created_at, updated_at, id: _id, ...productFields } = product
+const PRODUCT_TABLE_COLUMNS = new Set([
+    'name', 'cod_ref', 'description', 'category_id', 'base_price', 'unit',
+    'weight', 'dimensions', 'product_availability', 'stock_quantity',
+    'min_stock_alert', 'is_featured', 'is_active',
+])
+
+export async function updateProduct(id: string, product: Partial<Product> & Record<string, unknown>): Promise<Product | null> {
+    const { primary_image } = product as any
+
+    const productFields = Object.fromEntries(
+        Object.entries(product).filter(([key]) => PRODUCT_TABLE_COLUMNS.has(key))
+    )
 
     if (Object.keys(productFields).length > 0) {
         const { error } = await supabase

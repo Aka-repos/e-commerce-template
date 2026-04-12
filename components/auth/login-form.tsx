@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { login, setCurrentUser } from "@/lib/auth"
+import { getUserByEmail } from "@/app/actions/auth"
 import Link from "next/link"
 
 export function LoginForm() {
@@ -25,13 +26,15 @@ export function LoginForm() {
     setLoading(true)
 
     try {
-      const user = await login(email, password)
+      const mockUser = await login(email, password)
 
-      if (user) {
-        setCurrentUser(user)
+      if (mockUser) {
+        // Fetch real user from DB to get the actual UUID
+        const dbUser = await getUserByEmail(email)
+        setCurrentUser(dbUser ?? mockUser)
 
-        // Redirect based on role
-        if (user.role === "admin") {
+        const role = (dbUser ?? mockUser).role
+        if (role === "admin") {
           router.push("/admin")
         } else {
           router.push("/catalogo")

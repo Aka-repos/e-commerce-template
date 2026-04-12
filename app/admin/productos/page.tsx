@@ -20,8 +20,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Plus, Search, MoreVertical, Pencil, Trash2 } from "lucide-react"
-import { getAllProducts, createProduct, updateProduct, deleteProduct } from "@/app/actions/products"
-import { type Product } from "@/lib/products"
+import { getAllProducts, createProduct, updateProduct, deleteProduct, getCategories } from "@/app/actions/products"
+import { type Product, type Category } from "@/lib/products"
 import Image from "next/image"
 
 export default function AdminProductsPage() {
@@ -34,10 +34,15 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [refresh, setRefresh] = useState(0)
   const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [dbCategories, setDbCategories] = useState<Category[]>([])
 
   useEffect(() => {
     getAllProducts().then(setAllProducts).catch(console.error)
   }, [refresh])
+
+  useEffect(() => {
+    getCategories().then(setDbCategories).catch(console.error)
+  }, [])
 
   const filteredProducts = allProducts.filter((product) => {
     const matchesSearch =
@@ -77,7 +82,7 @@ export default function AdminProductsPage() {
 
   const handleSubmit = async (productData: Omit<Product, "id"> | Product) => {
     if (dialogMode === "edit" && "id" in productData) {
-      await updateProduct(productData.id, productData)
+      await updateProduct(productData.id, productData as Partial<Product> & Record<string, unknown>)
     } else {
       await createProduct(productData as Omit<Product, "id">)
     }
@@ -125,34 +130,16 @@ export default function AdminProductsPage() {
               >
                 Todos
               </Button>
-              <Button
-                variant={selectedCategory === "telas" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("telas")}
-              >
-                Telas
-              </Button>
-              <Button
-                variant={selectedCategory === "hilos" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("hilos")}
-              >
-                Hilos
-              </Button>
-              <Button
-                variant={selectedCategory === "botones" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("botones")}
-              >
-                Botones
-              </Button>
-              <Button
-                variant={selectedCategory === "accesorios" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory("accesorios")}
-              >
-                Accesorios
-              </Button>
+              {dbCategories.map((cat) => (
+                <Button
+                  key={cat.id}
+                  variant={selectedCategory === cat.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat.id)}
+                >
+                  {cat.name}
+                </Button>
+              ))}
             </div>
 
             {/* Products Table */}
